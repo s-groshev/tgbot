@@ -26,8 +26,7 @@ import ru.angara.kitchen.model.User;
 import ru.angara.kitchen.model.UserRepository;
 
 import java.sql.Timestamp;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @Component
 @Slf4j
@@ -39,7 +38,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     private UserRepository userRepository;
     final BotConfig config;
 
-    static final String HELP_TEXT = "THis bot make by Angara team\n\n" +
+    static final String HELP_TEXT = "Этот бот создает \n\n" +
             "Type /start for ...\n\n" +
             "Type /mydata for ...\n\n";
     static final String YES_BUTTON = "YES_BUTTON";
@@ -49,12 +48,17 @@ public class TelegramBot extends TelegramLongPollingBot {
     public TelegramBot(BotConfig config) {
         this.config = config;
         List<BotCommand> listOfCommands = new ArrayList<>();
-        listOfCommands.add(new BotCommand("/start","get a welcome"));
-        listOfCommands.add(new BotCommand("/mydata","get your datastore"));
-        listOfCommands.add(new BotCommand("/deletemydata","delete your datastore"));
-        listOfCommands.add(new BotCommand("/help","how to use"));
-        listOfCommands.add(new BotCommand("/register","РЕГИСТРАТУРА"));
-        listOfCommands.add(new BotCommand("/settings","settings your preference"));
+        listOfCommands.add(new BotCommand("/start","Запустить бот"));
+        listOfCommands.add(new BotCommand("/donate","Отправить донат"));
+        listOfCommands.add(new BotCommand("/notification","Настроить уведомление о донатах"));
+        listOfCommands.add(new BotCommand("/report_of_donate","Отчетность по донатам"));
+        listOfCommands.add(new BotCommand("/goods_shopping","Пожелания по закупке"));
+        listOfCommands.add(new BotCommand("/report_of_purchase","Запрос отчетности по закупкам"));
+        listOfCommands.add(new BotCommand("/receipt","Подкрепление фото чеков от заказчика"));
+        listOfCommands.add(new BotCommand("/help","Инструкции"));
+//        listOfCommands.add(new BotCommand("/register","РЕГИСТРАТУРА"));
+//        listOfCommands.add(new BotCommand("/settings","settings your preference"));
+
 
         try {
             this.execute(new SetMyCommands(listOfCommands, new BotCommandScopeDefault(),null));
@@ -86,7 +90,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                         messageTest.substring(messageTest.indexOf(" ")));
                 Iterable<User> users = userRepository.findAll();
                 for (User user: users) {
-                    prepareAndSendMessage(user.getChatId(), textToSend);
+                    onlyText(user.getChatId(), textToSend);
                 }
             } else {
                 switch (messageTest) {
@@ -95,12 +99,33 @@ public class TelegramBot extends TelegramLongPollingBot {
                         startCommandReceived(chatId,update.getMessage().getChat().getFirstName());
                         break;
                     case "/help":
-                        prepareAndSendMessage(chatId,HELP_TEXT);
+                        onlyText(chatId,HELP_TEXT);
                         break;
                     case "/register":
-                        register(chatId);
+                        TextAndButtonUnderMessage(chatId, "asdaasdasd");
                         break;
-                default: prepareAndSendMessage(chatId, "Sorry not command");
+                    case "/donate":
+                        donateMessage(chatId);
+                        break;
+                    case "Донат":
+                        donateMessage(chatId);
+                        break;
+                    case "/notification":
+                        notificationMessage(chatId);
+                        break;
+                    case "/reporting":
+//                        TextAndButtonUnderMessage();
+                        break;
+                    case "/goods_shopping":
+//                        TextAndButtonUnderMessage();
+                        break;
+                    case "/report_of_purchase":
+//                        TextAndButtonUnderMessage();
+                        break;
+                    case "/receipt":
+//                        TextAndButtonUnderMessage();
+                        break;
+                default: onlyText(chatId, "Ничего");
                     break;
                 }
             }
@@ -110,7 +135,7 @@ public class TelegramBot extends TelegramLongPollingBot {
             long messageId = update.getCallbackQuery().getMessage().getMessageId();
             long chatId = update.getCallbackQuery().getMessage().getChatId();
 
-            if (callbackDate.equals(YES_BUTTON)) {
+            if (callbackDate.equals("https://www.sberbank.com/sms/pbpn?requisiteNumber=9228354869")) {
                 String text = "Нажал ДА";
                 executeMessageText(text,chatId,messageId);
 
@@ -118,10 +143,23 @@ public class TelegramBot extends TelegramLongPollingBot {
                 String text = "Нажал НОУ";
                 executeMessageText(text,chatId,messageId);
             }
+
+            if (callbackDate.startsWith("setInterval") && callbackDate.contains("#")) {
+                String[] str = callbackDate.split("#");
+                String strInterval = str[2];
+                Long interval = Long.parseLong(strInterval);
+                Optional<User> oUser = userRepository.findById(chatId);
+                User user = oUser.get();
+                user.setInter(interval);
+                userRepository.save(user);
+                onlyText(chatId, "Спасибо!!");
+            }
+
         }
     }
 
     private void executeMessageText(String text, long chatId, long messageId ){
+        //  Отправить сообщение
         EditMessageText message = new EditMessageText();
         message.setChatId(String.valueOf(chatId));
         message.setText(text);
@@ -134,11 +172,75 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
     }
 
+    private void donateMessage(long chatId) {
+        SendMessage message = new SendMessage();
+        message.setChatId(String.valueOf(chatId));
+        message.setText("Выберите способ оплаты");
+
+        HashMap<String,String> donateMap = new HashMap<>();
+        donateMap.put("Сбербанк онлайн","https://www.sberbank.com/sms/pbpn?requisiteNumber=9228354869");
+        donateMap.put("Тинькофф","https://www.tinkoff.ru/rm/kubagushev.bagautdin1/IyLRW53002");
+
+        InlineKeyboardMarkup markupInline = new InlineKeyboardMarkup();
+        List<List<InlineKeyboardButton>> rowsInline = new ArrayList<>();
+
+        for (String donate: donateMap.keySet()) {
+            InlineKeyboardButton button = new InlineKeyboardButton();
+            button.setUrl(donateMap.get(donate));
+            button.setText(donate);
+            button.setCallbackData(donateMap.get(donate));
+            List<InlineKeyboardButton> rowInLine = new ArrayList<>();
+            rowInLine.add(button);
+            rowsInline.add(rowInLine);
+        }
+
+        markupInline.setKeyboard(rowsInline);
+        message.setReplyMarkup(markupInline);
+
+        executeMessage(message);
+    }
+
+    private void notificationMessage(long chatId) {
+        SendMessage message = new SendMessage();
+        message.setChatId(String.valueOf(chatId));
+
+        Optional<User> oUser = userRepository.findById(chatId);
+        User user = oUser.get();
+        String interval="";
+        String notAt="";
+
+        if (user.getInter() != null ) interval = String.valueOf(user.getInter());
+        if (user.getNotificationAt() != null ) notAt = String.valueOf(user.getNotificationAt());
+
+        message.setText("Дорогой пир! " + interval + " " + notAt);
+
+        HashMap<String,String> donateMap = new HashMap<>();
+        donateMap.put("Неделя","setInterval#" + chatId + "#" + 604_800_000);
+        donateMap.put("Месяц","setInterval#" + chatId + "#" + "2592000000");
+
+        InlineKeyboardMarkup markupInline = new InlineKeyboardMarkup();
+        List<List<InlineKeyboardButton>> rowsInline = new ArrayList<>();
+
+        for (String donate: donateMap.keySet()) {
+            InlineKeyboardButton button = new InlineKeyboardButton();
+            button.setText(donate);
+            button.setCallbackData(donateMap.get(donate));
+            List<InlineKeyboardButton> rowInLine = new ArrayList<>();
+            rowInLine.add(button);
+            rowsInline.add(rowInLine);
+        }
+
+        markupInline.setKeyboard(rowsInline);
+        message.setReplyMarkup(markupInline);
+
+        executeMessage(message);
+    }
+
     private void startCommandReceived(long chatId, String name) {
         String answer = EmojiParser.parseToUnicode("Hi, :blush: " + name +
                 ",nice to meet you! " + "\uD83D\uDD25");
 //        https://emojipedia.org/fire
-        sendMessage(chatId, answer);
+        startMessage(chatId, answer);
         log.info("Зашел user" + name);
     }
 
@@ -152,16 +254,18 @@ public class TelegramBot extends TelegramLongPollingBot {
             user.setLastName(chat.getLastName());
             user.setUserName(chat.getUserName());
             user.setRegisteredAt(new Timestamp(System.currentTimeMillis()));
+            user.setNotificationAt(new Timestamp(System.currentTimeMillis()));
+            user.setInter(Long.MAX_VALUE);
 
             userRepository.save(user);
             log.info("user saved: " + user);
         }
     }
 
-    private void register(long chatId) {
+    private void TextAndButtonUnderMessage(long chatId, String newText) {
         SendMessage message = new SendMessage();
         message.setChatId(String.valueOf(chatId));
-        message.setText("Че та тут регается");
+        message.setText(newText);
 
         InlineKeyboardMarkup markupInline = new InlineKeyboardMarkup();
         List<List<InlineKeyboardButton>> rowsInline = new ArrayList<>();
@@ -175,6 +279,10 @@ public class TelegramBot extends TelegramLongPollingBot {
         noButton.setText("No");
         noButton.setCallbackData(NO_BUTTON);
 
+        InlineKeyboardButton maybeButton = new InlineKeyboardButton();
+        noButton.setText("Maybe");
+        noButton.setCallbackData(NO_BUTTON);
+
         rowInLine.add(yesButton);
         rowInLine.add(noButton);
 
@@ -185,7 +293,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         executeMessage(message);
     }
 
-    private void sendMessage(long chatId, String textToSend) {
+    private void startMessage(long chatId, String textToSend) {
         SendMessage message = new SendMessage();
         message.setChatId(String.valueOf(chatId));
         message.setText(textToSend);
@@ -196,10 +304,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
         KeyboardRow row = new KeyboardRow();
 
-        row.add("Whther");
-        row.add("Summer");
-        row.add("Yes");
-        row.add("____--__");
+        row.add("Донат");
         keyboardRows.add(row);
 
         row = new KeyboardRow();
@@ -216,7 +321,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         executeMessage(message);
     }
 
-    private void prepareAndSendMessage(long chatId, String textToSend) {
+    private void onlyText(long chatId, String textToSend) {
         SendMessage message = new SendMessage();
         message.setChatId(String.valueOf(chatId));
         message.setText(textToSend);
@@ -236,13 +341,25 @@ public class TelegramBot extends TelegramLongPollingBot {
         var ads = adsRepository.findAll();
         var users = userRepository.findAll();
 
+        //для рассылки рекламы
         for (Ads ad: ads) {
             for (User user : users) {
                 //чтобы не доставало
-                prepareAndSendMessage(user.getChatId(), ad.getAd());
+                onlyText(user.getChatId(), ad.getAd());
+            }
+        }
+
+        //для рассылки увеомлений о донате
+        for (User user : users) {
+            if (user.getRegisteredAt() != null &&
+                    new Date().getTime() - user.getRegisteredAt().getTime() > user.getInter()) {
+                user.setNotificationAt(new Timestamp(System.currentTimeMillis()));
+                onlyText(user.getChatId(), "Дорогой пир! Пришло время донатить!");
+                donateMessage(user.getChatId());
             }
         }
     }
+
 
     @Override
     public void onRegister() {

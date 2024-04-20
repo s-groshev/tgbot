@@ -23,4 +23,6 @@ public class User {
     private String lastName;
     private String userName;
     private Timestamp registeredAt;
+    private Timestamp notificationAt;
+    private Long inter; // в сек
 }
