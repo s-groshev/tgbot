@@ -146,13 +146,18 @@ public class TelegramBot extends TelegramLongPollingBot {
 
             if (callbackDate.startsWith("setInterval") && callbackDate.contains("#")) {
                 String[] str = callbackDate.split("#");
-                String strInterval = str[2];
+                String strInterval = str[1];
                 Long interval = Long.parseLong(strInterval);
                 Optional<User> oUser = userRepository.findById(chatId);
                 User user = oUser.get();
                 user.setInter(interval);
                 userRepository.save(user);
-                onlyText(chatId, "Спасибо!!");
+                if (strInterval.equals("604800000")) {
+                    strInterval = " каждую неделю";
+                } else if (strInterval.equals("2592000000")) {
+                    strInterval = " каждый месяц";
+                }
+                executeMessageText("Следующее напоминание будет " + strInterval, chatId, messageId);
             }
 
         }
@@ -215,8 +220,8 @@ public class TelegramBot extends TelegramLongPollingBot {
         message.setText("Дорогой пир! " + interval + " " + notAt);
 
         HashMap<String,String> donateMap = new HashMap<>();
-        donateMap.put("Неделя","setInterval#" + chatId + "#" + 604_800_000);
-        donateMap.put("Месяц","setInterval#" + chatId + "#" + "2592000000");
+        donateMap.put("Неделя","setInterval#" + "604800000");
+        donateMap.put("Месяц","setInterval#" + "2592000000");
 
         InlineKeyboardMarkup markupInline = new InlineKeyboardMarkup();
         List<List<InlineKeyboardButton>> rowsInline = new ArrayList<>();
